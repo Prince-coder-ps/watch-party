@@ -24,7 +24,8 @@ function Home() {
 
       localStorage.setItem('username', username.trim());
       navigate(`/room/${data.roomId}`);
-    } catch {
+    } catch (err) {
+      console.error('create room failed:', err);
       setError('Could not reach the server');
     }
   };

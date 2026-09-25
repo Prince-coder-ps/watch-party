@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-// autoConnect false: room join karte waqt manually connect karenge
+// One userId per browser. Stays the same across reconnects/refreshes.
 export const socket = io(import.meta.env.VITE_SERVER_URL, {
   autoConnect: false,
 });
