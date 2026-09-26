@@ -82,12 +82,20 @@ function Home() {
       </header>
 
       {/* Hero: grid backdrop, big headline left, create/join card right.
-          flex-1 + min-h-0 makes this fill exactly the space left between the
-          header and footer (both fixed-height), so the whole page fits one
-          screen with no scrolling. overflow-y-auto is just a safety net for
-          very short screens where the content genuinely doesn't fit. */}
-      <main className="bg-grid flex min-h-0 flex-1 items-center overflow-y-auto px-6 py-6 md:px-10">
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-12">
+          IMPORTANT: no `items-center` on this flex container - centering a
+          child that's TALLER than the viewport (common on short mobile
+          screens) makes the browser clip whatever overflows above center and
+          that clipped part (the headline, since it's topmost) becomes
+          unreachable even with overflow-y-auto - scrollTop can't go
+          negative. Centering instead happens via `my-auto` on the inner
+          wrapper below: it centers only when there's slack, and otherwise
+          sits at the natural top so overflow-y-auto can scroll to it. */}
+      <main className="bg-grid relative flex min-h-0 flex-1 overflow-y-auto px-6 py-6 md:px-10">
+        {/* Soft decorative glow - purely visual, sits behind everything, never
+            intercepts clicks. Fills otherwise-empty dark space with intent. */}
+        <div className="pointer-events-none absolute right-0 top-1/2 h-[500px] w-[500px] -translate-y-1/2 rounded-full bg-brand-500/10 blur-[120px] dark:bg-brand-500/20" />
+
+        <div className="relative my-auto mx-auto grid w-full max-w-6xl items-center gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-12">
           {/* Left column: headline + description + steps */}
           <div className="flex flex-col justify-center">
             <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-brand-500">
@@ -95,7 +103,7 @@ function Home() {
               Shared screen, shared moment
             </div>
 
-            <h1 className="font-display text-4xl leading-[0.95] tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl">
+            <h1 className="font-display text-4xl leading-[0.95] tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl 2xl:text-8xl">
               EVERYONE
               <br />
               HITS
@@ -105,17 +113,35 @@ function Home() {
               ONCE.
             </h1>
 
-            <p className="mt-6 max-w-md text-sm text-gray-600 dark:text-gray-400">
+            <p className="mt-6 max-w-lg text-base text-gray-600 dark:text-gray-400">
               A focused YouTube room where one timeline stays in sync. Hosts lead, moderators help,
               everyone watches together.
             </p>
+
+            {/* Bigger, icon-backed steps row - fills more of the left column
+                and gives the eye something to land on below the description */}
+            <div className="mt-10 grid max-w-lg grid-cols-3 gap-6 border-t border-gray-200 pt-8 dark:border-ink-700">
+              {[
+                ['01', 'Create', 'Spin up a room in one click'],
+                ['02', 'Invite', 'Share the code or link'],
+                ['03', 'Watch', 'Everyone stays in sync'],
+              ].map(([n, label, desc]) => (
+                <div key={n}>
+                  <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-brand-500/10 font-display text-base text-brand-500">
+                    {n}
+                  </div>
+                  <div className="text-sm font-semibold">{label}</div>
+                  <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{desc}</div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Right column: create/join card */}
           <div className="flex items-center justify-center lg:justify-end">
             <form
             onSubmit={handleSubmit}
-            className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-lg
+            className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-8 shadow-lg
                        dark:border-ink-700 dark:bg-ink-900"
           >
             {/* Tab switcher */}

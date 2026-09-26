@@ -1,40 +1,90 @@
-* {
-  box-sizing: border-box;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: system-ui, sans-serif;
-}
+/* ---------------------------------------------------------------------
+   Small hand-written CSS layer for things Tailwind utility classes
+   can't reach directly (custom font, range input styling, grid backdrop).
+   --------------------------------------------------------------------- */
 
-.player-box {
-  position: relative;
-  width: 100%;
-  max-width: 900px;
-  aspect-ratio: 16 / 9;
-  background: #000;
-}
-
-.player-target,
-.player-box iframe {
-  position: absolute;
-  inset: 0;
-  width: 100%;
+html,
+body,
+#root {
   height: 100%;
 }
 
-.player-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  text-align: center;
-  pointer-events: none; /* buffering wagairah dikhte waqt bhi slider clickable rahe */
+body {
+  font-family: 'Inter', system-ui, sans-serif;
 }
 
-.player-overlay > * {
-  pointer-events: auto;
+/* Faint grid-line backdrop used behind the hero section, mimicking a
+   graph-paper / blueprint look. Two linear-gradients = vertical + horizontal lines. */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+.dark .bg-grid {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.06) 1px, transparent 1px);
+}
+
+/* Custom-styled range slider used as the video seek bar */
+input[type='range'].seek-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 9999px;
+  background: theme('colors.gray.300');
+  outline: none;
+}
+.dark input[type='range'].seek-slider {
+  background: theme('colors.ink.600');
+}
+input[type='range'].seek-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: theme('colors.brand.500');
+  cursor: pointer;
+  border: 2px solid white;
+}
+input[type='range'].seek-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: theme('colors.brand.500');
+  cursor: pointer;
+  border: 2px solid white;
+}
+
+/* Thin, unobtrusive scrollbar for chat/participant lists */
+.thin-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: theme('colors.gray.400');
+  border-radius: 9999px;
+}
+.dark .thin-scrollbar::-webkit-scrollbar-thumb {
+  background: theme('colors.ink.600');
+}
+
+/* Small fade-in-down entrance used by the room's "Welcome, <name>!" popup */
+@keyframes fade-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in-down {
+  animation: fade-in-down 0.25s ease-out;
 }
