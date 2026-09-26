@@ -5,46 +5,74 @@ YouTube playback (play, pause, seek, video changes) stays perfectly in sync.
 Built with role-based access control (Host / Moderator / Participant), an
 approval-request flow for participants, host transfer, and room chat.
 
+**Live app:** _add your deployed URL here, e.g._ `https://syncwave.vercel.app`
+
 ---
 
 ## Tech stack
 
-| Layer      | Technology                                  |
-|------------|----------------------------------------------|
-| Frontend   | React + Vite, React Router, Tailwind CSS, lucide-react (icons) |
-| Backend    | Node.js + Express                             |
-| Realtime   | Socket.IO (WebSockets)                        |
-| Database   | MongoDB (Mongoose)                            |
-| Video      | YouTube IFrame Player API                     |
+| Layer    | Technology                                                      |
+| -------- | --------------------------------------------------------------- |
+| Frontend | React + Vite, React Router, Tailwind CSS, lucide-react (icons)  |
+| Backend  | Node.js + Express                                               |
+| Realtime | Socket.IO (WebSockets)                                          |
+| Database | MongoDB (Mongoose)                                              |
+| Video    | YouTube IFrame Player API + YouTube Data API v3 (in-app search) |
+
+## Features
+
+**Core (assignment requirements)**
+
+- Room-based sessions with shareable 6-character codes / invite links
+- Real-time sync of play, pause, seek, and video changes across all participants
+- Role-based access control — Host, Moderator, Participant — enforced server-side
+- Host can assign/revoke Moderator, remove participants, and transfer host
+- A Participant's actions queue as a request; Host/Moderator approves or rejects it
+
+**Beyond the MVP**
+
+- In-app YouTube search (search by title, pick from real results — no need to
+  paste a link)
+- Room chat
+- Persistent rooms — room code, host, and last-played video survive a server
+  restart (MongoDB)
+- Light/dark theme toggle
+- Responsive layout (mobile → tablet → desktop) with a custom SYNC// design system
 
 ## Folder structure
 
 ```
 SyncWave/
 ├── server/
-│   ├── index.js              # app entry point (Express + Socket.IO + Mongo)
-│   ├── permissions.js         # single source of truth for role permissions
-│   ├── models/RoomModel.js    # Mongoose schema (durable room data)
+│   ├── index.js                # app entry point (Express + Socket.IO + Mongo)
+│   ├── permissions.js           # single source of truth for role permissions
+│   ├── models/RoomModel.js      # Mongoose schema (durable room data)
 │   ├── rooms/
-│   │   ├── Room.js            # in-memory room state (playback, roles, chat, requests)
-│   │   └── roomStore.js       # registry of currently-active rooms
-│   ├── routes/rooms.js        # REST: create room / check room exists
-│   ├── socket/handlers.js     # every realtime event (join, play, chat, RBAC...)
-│   └── utils/youtube.js       # parses any YouTube URL format into a video ID
+│   │   ├── Room.js              # in-memory room state (playback, roles, chat, requests)
+│   │   └── roomStore.js         # registry of currently-active rooms
+│   ├── routes/
+│   │   ├── rooms.js             # REST: create room / check room exists
+│   │   └── youtube.js           # REST: in-app YouTube search (wraps Data API v3)
+│   ├── socket/handlers.js       # every realtime event (join, play, chat, RBAC...)
+│   └── utils/youtube.js         # parses any YouTube URL format into a video ID
 └── client/
     ├── index.html
     ├── tailwind.config.js
+    ├── public/favicon.svg
     └── src/
         ├── main.jsx / App.jsx
-        ├── socket.js           # shared Socket.IO client instance
-        ├── identity.js         # persistent per-browser userId
-        ├── theme.js            # light/dark theme persistence
+        ├── socket.js             # shared Socket.IO client instance
+        ├── identity.js           # persistent per-browser userId
+        ├── theme.js              # light/dark theme persistence
+        ├── icons.jsx             # shared icon set (lucide-react re-exports)
         ├── components/
-        │   ├── Player.jsx      # YouTube player + sync logic
-        │   └── ThemeToggle.jsx
+        │   ├── Player.jsx        # YouTube player + sync logic
+        │   ├── YouTubeSearch.jsx # search-by-title panel
+        │   ├── ThemeToggle.jsx
+        │   └── Footer.jsx
         └── pages/
-            ├── Home.jsx        # create / join room
-            └── Room.jsx        # the watch party itself
+            ├── Home.jsx          # create / join room
+            └── Room.jsx          # the watch party itself
 ```
 
 ## Setup & run locally
@@ -54,15 +82,20 @@ SyncWave/
 ```bash
 cd server
 npm install
-cp .env.example .env     # then edit .env with your own MongoDB URI
+cp .env.example .env     # then edit .env with your own values
 npm run dev               # starts on http://localhost:5000
 ```
 
-> The in-app "search YouTube by title" bar needs a `YOUTUBE_API_KEY` in
-> `server/.env`. Get a free one: Google Cloud Console → create/select a
-> project → enable **YouTube Data API v3** → Credentials → Create API key.
-> Without it, pasting a YouTube link still works fine - only the search
-> box will show an error.
+`server/.env` needs:
+
+| Variable          | Purpose                                                                                                              |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `MONGO_URI`       | MongoDB Atlas (or local) connection string                                                                           |
+| `YOUTUBE_API_KEY` | Enables the in-app search bar (Google Cloud Console → enable **YouTube Data API v3** → Credentials → Create API key) |
+| `CLIENT_URL`      | Your frontend's origin, for CORS + Socket.IO (e.g. `http://localhost:5173` locally)                                  |
+
+> Without `YOUTUBE_API_KEY`, pasting a YouTube link directly still works —
+> only the search-by-title box will show an error.
 
 ### 2. Frontend
 
@@ -73,19 +106,24 @@ cp .env.example .env     # points at your backend URL
 npm run dev               # starts on http://localhost:5173
 ```
 
+`client/.env` needs `VITE_SERVER_URL` (e.g. `http://localhost:5000` locally).
+
 Open two browser windows (use one Incognito window) at `http://localhost:5173`
 to test with multiple users.
 
-## Live deployment
+## Deployment
 
-_Add your deployed URL here after deploying, e.g._
-`https://your-app.onrender.com`
+Backend on **Render** (Web Service — supports WebSockets), frontend on
+**Vercel** (Vite static build):
 
-Suggested platform: **Render** (supports WebSockets + Node backend +
-static frontend in one place). Deploy `server/` as a Web Service and
-`client/` as a Static Site (build command `npm run build`, publish
-directory `dist`), and set `VITE_SERVER_URL` / `CLIENT_URL` / `MONGO_URI`
-as environment variables on each service.
+1. **MongoDB Atlas** → Network Access → allow `0.0.0.0/0` (Render's IPs aren't static)
+2. **Render**: New → Web Service → root directory `server` → Build: `npm install`
+   → Start: `npm start` → add env vars `MONGO_URI`, `YOUTUBE_API_KEY`, `CLIENT_URL`
+3. **Vercel**: New Project → root directory `client` → add env var
+   `VITE_SERVER_URL` = your Render URL → deploy
+4. Go back to Render and set `CLIENT_URL` to your actual Vercel URL, then
+   redeploy the backend (needed for CORS + Socket.IO to accept the frontend's origin)
+5. Test with two browser tabs on the live URL, then paste it at the top of this README
 
 ## Architecture overview
 
@@ -95,7 +133,7 @@ as environment variables on each service.
   applying and broadcasting the new state.
 - **In-memory room state + MongoDB.** Fast-changing playback state
   (`currentTime`, `playState`) lives in memory per room (`rooms/Room.js`)
-  and is *not* written to the database every tick. Only durable data
+  and is _not_ written to the database every tick. Only durable data
   (room code, host, last video) is persisted to MongoDB, so a room
   survives a server restart.
 - **Late-joiner sync.** A room's current position is derived on demand
@@ -124,3 +162,5 @@ as environment variables on each service.
   broadcast.
 - Chat history is capped at the last 50 messages per room and is not
   persisted to the database (kept simple for this assignment's scope).
+- CORS is locked to a single exact `CLIENT_URL` — Vercel preview-deployment
+  URLs (as opposed to the production domain) won't pass CORS unless added too.
