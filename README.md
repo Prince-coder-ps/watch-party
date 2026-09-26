@@ -5,7 +5,7 @@ YouTube playback (play, pause, seek, video changes) stays perfectly in sync.
 Built with role-based access control (Host / Moderator / Participant), an
 approval-request flow for participants, host transfer, and room chat.
 
-**Live app:** _add your deployed URL here, e.g._ `https://syncwave.vercel.app`
+**Live app:** `https://watch-party-beta-topaz.vercel.app`
 
 ---
 
