@@ -1,10 +1,14 @@
+// ---------------------------------------------------------------------------
+// FEATURE: REST endpoints for creating a room and checking if one exists.
+// Actual realtime interaction (join, play, chat, etc.) happens over sockets.
+// ---------------------------------------------------------------------------
 const express = require('express');
 const crypto = require('crypto');
 const RoomModel = require('../models/RoomModel');
 
 const router = express.Router();
 
-// 0/O aur 1/I hata diye taaki code padhne mein confusion na ho
+// Excludes 0/O and 1/I so codes are easy to read/share out loud
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 function generateRoomId() {
@@ -15,7 +19,7 @@ function generateRoomId() {
   return id;
 }
 
-// create room, creator ka userId hi host banega
+// FUNCTION: POST /api/rooms - create a room, creator's userId becomes host
 router.post('/', async (req, res) => {
   try {
     const { userId } = req.body;
@@ -24,7 +28,7 @@ router.post('/', async (req, res) => {
     let roomId;
     do {
       roomId = generateRoomId();
-    } while (await RoomModel.exists({ roomId }));
+    } while (await RoomModel.exists({ roomId })); // avoid rare code collisions
 
     const room = await RoomModel.create({ roomId, hostUserId: userId });
     res.status(201).json({ roomId: room.roomId });
@@ -34,7 +38,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// check karne ke liye ki room exist karta hai ya nahi
+// FUNCTION: GET /api/rooms/:roomId - check whether a room code is valid
 router.get('/:roomId', async (req, res) => {
   const room = await RoomModel.findOne({ roomId: req.params.roomId.toUpperCase() });
   if (!room) return res.status(404).json({ error: 'Room not found' });
