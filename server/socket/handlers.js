@@ -1,8 +1,15 @@
+// ---------------------------------------------------------------------------
+// FEATURE: All Socket.IO event handlers - this is the realtime "brain" of
+// the app. Every playback control, role change, chat message and approval
+// request flows through here. The server is always the source of truth:
+// clients never update each other directly, only through the server.
+// ---------------------------------------------------------------------------
 const { activeRooms, getOrLoadRoom, dropRoomIfEmpty } = require('../rooms/roomStore');
 const RoomModel = require('../models/RoomModel');
 const { canControlPlayback, canManageParticipants } = require('../permissions');
 const { extractVideoId } = require('../utils/youtube');
 
+// FUNCTION: handles a user leaving a room (explicit leave, disconnect, or tab close)
 function leaveCurrentRoom(io, socket) {
   const { roomId, userId } = socket.data;
   if (!roomId) return;
@@ -29,8 +36,8 @@ function leaveCurrentRoom(io, socket) {
   dropRoomIfEmpty(roomId);
 }
 
-// Every direct playback control (play/pause/seek/change_video) goes through here:
-// find the room -> check the role -> update state -> broadcast to everyone
+// FUNCTION: shared logic for direct playback controls (play/pause/seek/change_video).
+// Flow: find room -> check role -> mutate state -> broadcast to everyone.
 function handleControl(io, socket, applyChange) {
   const room = activeRooms.get(socket.data.roomId);
   const participant = room?.participants.get(socket.data.userId);
@@ -40,15 +47,14 @@ function handleControl(io, socket, applyChange) {
     return socket.emit('room_error', { message: "You don't have permission to control the video" });
   }
 
-  // If applyChange returns an error string, we skip the broadcast
-  const errorMessage = applyChange(room);
+  const errorMessage = applyChange(room); // returning a string = validation failed
   if (errorMessage) return socket.emit('room_error', { message: errorMessage });
 
   io.to(room.roomId).emit('sync_state', room.getSyncState());
 }
 
-// Applies one request's change to the room, using the same logic direct controls use.
-// Returns an error string on failure, or undefined on success.
+// FUNCTION: applies one approved request using the same room methods direct
+// controls use, so behavior is identical either way (no duplicated logic).
 function applyRequest(room, request) {
   switch (request.type) {
     case 'play':
@@ -71,7 +77,7 @@ function applyRequest(room, request) {
   }
 }
 
-// Shared check for assign_role / remove_participant: caller must be in the room and be the host
+// FUNCTION: shared guard for host-only actions (assign_role, remove_participant, transfer_host)
 function getRoomIfHost(socket, room) {
   const caller = room?.participants.get(socket.data.userId);
   if (!caller || caller.socketId !== socket.id) return null;
@@ -86,6 +92,9 @@ function registerHandlers(io) {
   io.on('connection', (socket) => {
     console.log('connected:', socket.id);
 
+    // FEATURE: join or rejoin a room. Returns full current state via ack
+    // (participants, playback sync, pending requests, chat history) so a
+    // late joiner is fully caught up immediately.
     socket.on('join_room', async (data, ack) => {
       const reply = typeof ack === 'function' ? ack : () => {};
 
@@ -98,7 +107,7 @@ function registerHandlers(io) {
           return reply({ ok: false, error: 'roomId, username and userId are required' });
         }
 
-        // Leave any previous room first — otherwise an emptied room could get
+        // Leave any previous room first - otherwise an emptied room could get
         // dropped from the map while we're still adding to the stale Room object
         leaveCurrentRoom(io, socket);
 
@@ -118,12 +127,12 @@ function registerHandlers(io) {
           participants: room.getParticipantList(),
         });
 
-        // Late joiners get the current video state and pending requests right here too
         reply({
           ok: true,
           participants: room.getParticipantList(),
           sync: room.getSyncState(),
           pendingRequests: room.getPendingRequests(),
+          chatMessages: room.getChatMessages(),
         });
       } catch (err) {
         console.error('join_room failed:', err.message);
@@ -131,6 +140,7 @@ function registerHandlers(io) {
       }
     });
 
+    // FEATURE: direct playback controls - only host/moderator can call these successfully
     socket.on('play', (data) => handleControl(io, socket, (room) => room.play(data?.time)));
     socket.on('pause', (data) => handleControl(io, socket, (room) => room.pause(data?.time)));
     socket.on('seek', (data) => handleControl(io, socket, (room) => room.seek(data?.time)));
@@ -148,13 +158,13 @@ function registerHandlers(io) {
       });
     });
 
-    // A participant (not host/mod) asks for a change instead of applying it directly
+    // FEATURE: a plain participant asks for a change instead of applying it directly
     socket.on('request_change', (data) => {
       const room = activeRooms.get(socket.data.roomId);
       const participant = room?.participants.get(socket.data.userId);
       if (!participant || participant.socketId !== socket.id) return;
 
-      // Host/Moderator don't need to request — they should use play/pause/seek/change_video directly
+      // Host/Moderator don't need to request - they should use direct controls
       if (canControlPlayback(participant.role)) {
         return socket.emit('room_error', { message: 'You can control playback directly' });
       }
@@ -177,7 +187,7 @@ function registerHandlers(io) {
       io.to(room.roomId).emit('pending_requests', room.getPendingRequests());
     });
 
-    // Host/Moderator approves or rejects a pending request
+    // FEATURE: host/moderator approves or rejects a pending participant request
     socket.on('respond_to_request', (data) => {
       const room = activeRooms.get(socket.data.roomId);
       const caller = room?.participants.get(socket.data.userId);
@@ -212,6 +222,7 @@ function registerHandlers(io) {
       if (requester) io.to(requester.socketId).emit('request_approved', { type: request.type });
     });
 
+    // FEATURE (RBAC): host promotes/demotes a participant's role
     socket.on('assign_role', (data) => {
       const room = activeRooms.get(socket.data.roomId);
       if (!getRoomIfHost(socket, room)) return;
@@ -239,6 +250,7 @@ function registerHandlers(io) {
       });
     });
 
+    // FEATURE (RBAC): host removes a participant from the room entirely
     socket.on('remove_participant', (data) => {
       const room = activeRooms.get(socket.data.roomId);
       if (!getRoomIfHost(socket, room)) return;
@@ -254,7 +266,7 @@ function registerHandlers(io) {
       room.removeParticipant(targetUserId);
       room.removeRequestsByUser(targetUserId);
 
-      // Also disconnect their actual socket from the room — just removing them
+      // Also disconnect their actual socket from the room - just removing them
       // from the participant list on our side isn't enough
       const targetSocket = io.sockets.sockets.get(target.socketId);
       if (targetSocket) {
@@ -269,6 +281,48 @@ function registerHandlers(io) {
       });
       io.to(room.roomId).emit('pending_requests', room.getPendingRequests());
       dropRoomIfEmpty(room.roomId);
+    });
+
+    // FEATURE (BONUS): host transfers their role to another participant/moderator
+    socket.on('transfer_host', async (data) => {
+      const room = activeRooms.get(socket.data.roomId);
+      if (!getRoomIfHost(socket, room)) return;
+
+      const targetUserId = String(data?.userId || '').trim();
+      if (targetUserId === socket.data.userId) {
+        return socket.emit('room_error', { message: 'You are already the host' });
+      }
+
+      const success = room.transferHost(targetUserId);
+      if (!success) return socket.emit('room_error', { message: 'Participant not found' });
+
+      // Persist the new host so a server restart / room reload keeps it correct
+      RoomModel.updateOne({ roomId: room.roomId }, { hostUserId: targetUserId }).catch((err) =>
+        console.error('save new host failed:', err.message)
+      );
+
+      io.to(room.roomId).emit('host_transferred', {
+        newHostUserId: targetUserId,
+        participants: room.getParticipantList(),
+      });
+    });
+
+    // FEATURE (BONUS): room-wide text chat, open to every participant (no role check)
+    socket.on('chat_message', (data) => {
+      const room = activeRooms.get(socket.data.roomId);
+      const participant = room?.participants.get(socket.data.userId);
+      if (!participant || participant.socketId !== socket.id) return;
+
+      const text = String(data?.text || '').trim().slice(0, 500); // hard cap message length
+      if (!text) return;
+
+      const message = room.addChatMessage({
+        userId: participant.userId,
+        username: participant.username,
+        text,
+      });
+
+      io.to(room.roomId).emit('chat_message', message);
     });
 
     socket.on('leave_room', () => leaveCurrentRoom(io, socket));
