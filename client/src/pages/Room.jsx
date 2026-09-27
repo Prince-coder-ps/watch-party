@@ -4,12 +4,12 @@
 // queue, and room-wide chat. Everything here reacts to server-pushed socket
 // events; this component never mutates shared state on its own.
 // ---------------------------------------------------------------------------
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { socket } from '../socket';
-import { getUserId } from '../identity';
-import Player from '../components/Player';
-import ThemeToggle from '../components/ThemeToggle';
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { socket } from "../socket";
+import { getUserId } from "../identity";
+import Player from "../components/Player";
+import ThemeToggle from "../components/ThemeToggle";
 import {
   PlayIcon,
   CopyIcon,
@@ -21,26 +21,26 @@ import {
   LinkIcon,
   MessageCircleIcon,
   SendIcon,
-} from '../icons';
+} from "../icons";
 
 // FUNCTION: plain-language description of a pending request, for the host/mod to read
 function describeRequest(type) {
   switch (type) {
-    case 'play':
-      return 'play the video';
-    case 'pause':
-      return 'pause the video';
-    case 'seek':
-      return 'seek to a new position';
-    case 'change_video':
-      return 'change the video';
+    case "play":
+      return "play the video";
+    case "pause":
+      return "pause the video";
+    case "seek":
+      return "seek to a new position";
+    case "change_video":
+      return "change the video";
     default:
-      return 'make a change';
+      return "make a change";
   }
 }
 
 function initials(name) {
-  return (name || '?').trim().slice(0, 2).toUpperCase();
+  return (name || "?").trim().slice(0, 2).toUpperCase();
 }
 
 // FEATURE: Host always listed first, then Moderator, then Participant.
@@ -53,9 +53,9 @@ function sortByRole(list) {
 }
 
 const ROLE_STYLES = {
-  host: 'bg-brand-500/15 text-brand-500',
-  moderator: 'bg-blue-500/15 text-blue-400',
-  participant: 'bg-gray-500/15 text-gray-400',
+  host: "bg-brand-500/15 text-brand-500",
+  moderator: "bg-blue-500/15 text-blue-400",
+  participant: "bg-gray-500/15 text-gray-400",
 };
 
 function Room() {
@@ -64,27 +64,29 @@ function Room() {
   const chatEndRef = useRef(null);
   const chatOpenRef = useRef(false); // mirrors chatOpen for the socket listener below
 
-  const [username, setUsername] = useState(localStorage.getItem('username') || '');
-  const [nameInput, setNameInput] = useState('');
+  const [username, setUsername] = useState(
+    localStorage.getItem("username") || "",
+  );
+  const [nameInput, setNameInput] = useState("");
   const [participants, setParticipants] = useState([]);
   const [sync, setSync] = useState(null);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState('');
+  const [chatInput, setChatInput] = useState("");
   const [chatOpen, setChatOpen] = useState(false); // is the floating chat panel open?
   const [unreadCount, setUnreadCount] = useState(0); // badge count while chat is closed
-  const [notice, setNotice] = useState('');
-  const [error, setError] = useState('');
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [welcome, setWelcome] = useState(''); // username to greet, cleared after a few seconds
+  const [welcome, setWelcome] = useState(""); // username to greet, cleared after a few seconds
   const hasJoinedRef = useRef(false); // so the welcome popup only shows on the FIRST join, not on reconnects
 
   const myUserId = getUserId();
   const myRole = participants.find((p) => p.userId === myUserId)?.role;
   // UI-only flags for enabling/disabling buttons - the real check always happens on the server
-  const canControl = myRole === 'host' || myRole === 'moderator';
-  const isHost = myRole === 'host';
+  const canControl = myRole === "host" || myRole === "moderator";
+  const isHost = myRole === "host";
 
   // MAIN EFFECT: connects the socket, joins the room, and wires up every
   // realtime event this page cares about. Runs once username is known.
@@ -92,19 +94,23 @@ function Room() {
     if (!username) return; // came from an invite link with no name yet
 
     const joinRoom = () => {
-      socket.emit('join_room', { roomId, username, userId: myUserId }, (res) => {
-        if (!res.ok) return setError(res.error);
-        setParticipants(res.participants);
-        setSync(res.sync);
-        setPendingRequests(res.pendingRequests || []);
-        setChatMessages(res.chatMessages || []);
+      socket.emit(
+        "join_room",
+        { roomId, username, userId: myUserId },
+        (res) => {
+          if (!res.ok) return setError(res.error);
+          setParticipants(res.participants);
+          setSync(res.sync);
+          setPendingRequests(res.pendingRequests || []);
+          setChatMessages(res.chatMessages || []);
 
-        if (!hasJoinedRef.current) {
-          hasJoinedRef.current = true;
-          setWelcome(username);
-          setTimeout(() => setWelcome(''), 3000);
-        }
-      });
+          if (!hasJoinedRef.current) {
+            hasJoinedRef.current = true;
+            setWelcome(username);
+            setTimeout(() => setWelcome(""), 3000);
+          }
+        },
+      );
     };
 
     const onParticipantsChange = (data) => setParticipants(data.participants);
@@ -116,61 +122,63 @@ function Room() {
     };
     const onRoomError = (data) => {
       setNotice(data.message);
-      setTimeout(() => setNotice(''), 3000);
+      setTimeout(() => setNotice(""), 3000);
     };
     const onRequestApproved = (data) => {
       setNotice(`Your request to ${describeRequest(data.type)} was approved`);
-      setTimeout(() => setNotice(''), 3000);
+      setTimeout(() => setNotice(""), 3000);
     };
     const onRequestRejected = (data) => {
       setNotice(`Your request to ${describeRequest(data.type)} was rejected`);
-      setTimeout(() => setNotice(''), 3000);
+      setTimeout(() => setNotice(""), 3000);
     };
     const onHostTransferred = (data) => {
       setParticipants(data.participants);
       setNotice(
-        data.newHostUserId === myUserId ? 'You are now the host' : 'The host role was transferred'
+        data.newHostUserId === myUserId
+          ? "You are now the host"
+          : "The host role was transferred",
       );
-      setTimeout(() => setNotice(''), 3000);
+      setTimeout(() => setNotice(""), 3000);
     };
     const onRemoved = () => {
-      alert('You were removed from the room by the host');
-      navigate('/');
+      alert("You were removed from the room by the host");
+      navigate("/");
     };
 
-    socket.on('user_joined', onParticipantsChange);
-    socket.on('user_left', onParticipantsChange);
-    socket.on('role_assigned', onParticipantsChange);
-    socket.on('participant_removed', onParticipantsChange);
-    socket.on('host_transferred', onHostTransferred);
-    socket.on('sync_state', onSync);
-    socket.on('pending_requests', onPendingRequests);
-    socket.on('chat_message', onChatMessage);
-    socket.on('room_error', onRoomError);
-    socket.on('request_approved', onRequestApproved);
-    socket.on('request_rejected', onRequestRejected);
-    socket.on('removed_from_room', onRemoved);
+    socket.on("user_joined", onParticipantsChange);
+    socket.on("user_left", onParticipantsChange);
+    socket.on("role_assigned", onParticipantsChange);
+    socket.on("participant_removed", onParticipantsChange);
+    socket.on("host_transferred", onHostTransferred);
+    socket.on("sync_state", onSync);
+    socket.on("pending_requests", onPendingRequests);
+    socket.on("chat_message", onChatMessage);
+    socket.on("room_error", onRoomError);
+    socket.on("request_approved", onRequestApproved);
+    socket.on("request_rejected", onRequestRejected);
+    socket.on("removed_from_room", onRemoved);
     // After a reconnect the server has already dropped this socket from the room,
     // so we must join again
-    socket.on('connect', joinRoom);
+    socket.on("connect", joinRoom);
 
     if (socket.connected) joinRoom();
     else socket.connect();
 
     return () => {
-      socket.off('user_joined', onParticipantsChange);
-      socket.off('user_left', onParticipantsChange);
-      socket.off('role_assigned', onParticipantsChange);
-      socket.off('participant_removed', onParticipantsChange);
-      socket.off('host_transferred', onHostTransferred);
-      socket.off('sync_state', onSync);
-      socket.off('pending_requests', onPendingRequests);
-      socket.off('chat_message', onChatMessage);
-      socket.off('room_error', onRoomError);
-      socket.off('request_approved', onRequestApproved);
-      socket.off('request_rejected', onRequestRejected);
-      socket.off('removed_from_room', onRemoved);
-      socket.off('connect', joinRoom);
+      socket.off("user_joined", onParticipantsChange);
+      socket.off("user_left", onParticipantsChange);
+      socket.off("role_assigned", onParticipantsChange);
+      socket.off("participant_removed", onParticipantsChange);
+      socket.off("host_transferred", onHostTransferred);
+      socket.off("sync_state", onSync);
+      socket.off("pending_requests", onPendingRequests);
+      socket.off("chat_message", onChatMessage);
+      socket.off("room_error", onRoomError);
+      socket.off("request_approved", onRequestApproved);
+      socket.off("request_rejected", onRequestRejected);
+      socket.off("removed_from_room", onRemoved);
+      socket.off("connect", joinRoom);
       socket.disconnect(); // server handles the leave itself on disconnect
     };
   }, [roomId, username, myUserId, navigate]);
@@ -184,13 +192,13 @@ function Room() {
 
   // Auto-scroll chat to the latest message
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
   const submitName = () => {
     const name = nameInput.trim();
     if (!name) return;
-    localStorage.setItem('username', name);
+    localStorage.setItem("username", name);
     setUsername(name);
   };
 
@@ -209,26 +217,30 @@ function Room() {
   };
 
   // --- Host-only actions (server re-validates all of these) ---
-  const promote = (userId) => socket.emit('assign_role', { userId, role: 'moderator' });
-  const demote = (userId) => socket.emit('assign_role', { userId, role: 'participant' });
+  const promote = (userId) =>
+    socket.emit("assign_role", { userId, role: "moderator" });
+  const demote = (userId) =>
+    socket.emit("assign_role", { userId, role: "participant" });
   const removeUser = (userId, name) => {
-    if (confirm(`Remove ${name} from the room?`)) socket.emit('remove_participant', { userId });
+    if (confirm(`Remove ${name} from the room?`))
+      socket.emit("remove_participant", { userId });
   };
   const transferHost = (userId, name) => {
     if (confirm(`Make ${name} the new host? You will become a participant.`)) {
-      socket.emit('transfer_host', { userId });
+      socket.emit("transfer_host", { userId });
     }
   };
 
   // --- Approval queue (host/moderator) ---
-  const respondToRequest = (requestId, approve) => socket.emit('respond_to_request', { requestId, approve });
+  const respondToRequest = (requestId, approve) =>
+    socket.emit("respond_to_request", { requestId, approve });
 
   // --- Chat (everyone) ---
   const sendChat = (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
-    socket.emit('chat_message', { text: chatInput.trim() });
-    setChatInput('');
+    socket.emit("chat_message", { text: chatInput.trim() });
+    setChatInput("");
   };
 
   // --- Screen: ask for a display name (invite-link deep entry) ---
@@ -236,7 +248,9 @@ function Room() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white px-4 dark:bg-ink-950">
         <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-lg dark:border-ink-700 dark:bg-ink-900">
-          <h2 className="mb-4 font-display text-xl dark:text-white">Join room {roomId}</h2>
+          <h2 className="mb-4 font-display text-xl dark:text-white">
+            Join room {roomId}
+          </h2>
           <input
             placeholder="Your name"
             value={nameInput}
@@ -263,7 +277,7 @@ function Room() {
         <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 text-center shadow-lg dark:border-ink-700 dark:bg-ink-900">
           <p className="mb-4 text-sm font-medium text-red-500">{error}</p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
             className="w-full rounded-lg bg-brand-500 py-3 text-sm font-bold uppercase tracking-wide text-white hover:bg-brand-600"
           >
             Back to home
@@ -309,7 +323,13 @@ function Room() {
           <span className="font-mono text-base font-bold tracking-widest text-ink-900 dark:text-white sm:text-lg">
             {roomId}
           </span>
-          <span>{copiedCode ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}</span>
+          <span>
+            {copiedCode ? (
+              <CheckIcon className="h-3.5 w-3.5" />
+            ) : (
+              <CopyIcon className="h-3.5 w-3.5" />
+            )}
+          </span>
         </button>
 
         <div className="flex items-center gap-3">
@@ -317,7 +337,7 @@ function Room() {
 
           {/* Desktop/tablet (sm and up): icon + text "Leave" button */}
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
             className="hidden items-center gap-1.5 rounded-md border border-gray-200 px-3 py-2 text-xs font-semibold
                        text-red-500 transition hover:bg-red-50 dark:border-ink-700 dark:hover:bg-red-950 sm:flex"
           >
@@ -326,7 +346,7 @@ function Room() {
 
           {/* Mobile (below sm): icon-only exit button - saves space on small screens */}
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
             title="Leave room"
             className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200
                        transition hover:bg-red-50 hover:text-red-500 dark:border-ink-700 dark:hover:bg-red-950 sm:hidden"
@@ -343,8 +363,10 @@ function Room() {
           LIVE ROOM · {participants.length} WATCHING
         </span>
         {myRole && (
-          <span className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${ROLE_STYLES[myRole]}`}>
-            {canControl ? 'Controls enabled' : 'View only'} · {myRole}
+          <span
+            className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${ROLE_STYLES[myRole]}`}
+          >
+            {canControl ? "Controls enabled" : "View only"} · {myRole}
           </span>
         )}
       </div>
@@ -374,9 +396,13 @@ function Room() {
               </h3>
               <ul className="flex flex-col gap-2">
                 {pendingRequests.map((r) => (
-                  <li key={r.id} className="rounded-lg bg-gray-50 p-3 text-sm dark:bg-ink-800">
+                  <li
+                    key={r.id}
+                    className="rounded-lg bg-gray-50 p-3 text-sm dark:bg-ink-800"
+                  >
                     <p className="mb-2">
-                      <strong>{r.username}</strong> wants to {describeRequest(r.type)}
+                      <strong>{r.username}</strong> wants to{" "}
+                      {describeRequest(r.type)}
                     </p>
                     <div className="flex gap-2">
                       <button
@@ -401,7 +427,9 @@ function Room() {
           {/* People */}
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-ink-700 dark:bg-ink-900">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400">In the room</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400">
+                In the room
+              </h3>
               <span className="flex items-center gap-1 text-xs text-gray-400">
                 <UsersIcon className="h-3.5 w-3.5" /> {participants.length}
               </span>
@@ -414,10 +442,15 @@ function Room() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
-                      {p.username} {p.userId === myUserId && <span className="text-gray-400">(you)</span>}
+                      {p.username}{" "}
+                      {p.userId === myUserId && (
+                        <span className="text-gray-400">(you)</span>
+                      )}
                     </p>
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${ROLE_STYLES[p.role]}`}>
-                      {p.role === 'host' ? (
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${ROLE_STYLES[p.role]}`}
+                    >
+                      {p.role === "host" ? (
                         <>
                           <CrownIcon /> host
                         </>
@@ -429,7 +462,7 @@ function Room() {
 
                   {isHost && p.userId !== myUserId && (
                     <div className="flex shrink-0 gap-1">
-                      {p.role === 'participant' && (
+                      {p.role === "participant" && (
                         <button
                           onClick={() => promote(p.userId)}
                           title="Make moderator"
@@ -438,7 +471,7 @@ function Room() {
                           + Mod
                         </button>
                       )}
-                      {p.role === 'moderator' && (
+                      {p.role === "moderator" && (
                         <button
                           onClick={() => demote(p.userId)}
                           title="Make participant"
@@ -473,13 +506,19 @@ function Room() {
             <h3 className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-brand-500">
               <LinkIcon className="h-3.5 w-3.5" /> Invite people
             </h3>
-            <p className="mb-3 text-xs text-gray-400">Share the room link. New arrivals join as participants.</p>
+            <p className="mb-3 text-xs text-gray-400">
+              Share the room link. New arrivals join as participants.
+            </p>
             <button
               onClick={copyInviteLink}
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 py-2 text-sm font-medium transition hover:bg-gray-50 dark:border-ink-600 dark:hover:bg-ink-800"
             >
-              {copiedLink ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
-              {copiedLink ? 'Copied!' : 'Copy invite link'}
+              {copiedLink ? (
+                <CheckIcon className="h-4 w-4" />
+              ) : (
+                <CopyIcon className="h-4 w-4" />
+              )}
+              {copiedLink ? "Copied!" : "Copy invite link"}
             </button>
           </div>
         </aside>
@@ -490,14 +529,14 @@ function Room() {
           to find it. Clicking it opens/closes a small chat panel above it. */}
       <button
         onClick={() => setChatOpen((open) => !open)}
-        title={chatOpen ? 'Close chat' : 'Open chat'}
+        title={chatOpen ? "Close chat" : "Open chat"}
         className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full
                    bg-brand-500 text-white shadow-xl transition hover:bg-brand-600"
       >
         <MessageCircleIcon className="h-6 w-6" />
         {unreadCount > 0 && (
           <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-bold text-white">
-            {unreadCount > 9 ? '9+' : unreadCount}
+            {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
@@ -519,17 +558,26 @@ function Room() {
           </div>
 
           <div className="thin-scrollbar flex-1 space-y-2 overflow-y-auto px-4 py-3 text-sm">
-            {chatMessages.length === 0 && <p className="text-xs text-gray-400">No messages yet. Say hi 👋</p>}
+            {chatMessages.length === 0 && (
+              <p className="text-xs text-gray-400">
+                No messages yet. Say hi 👋
+              </p>
+            )}
             {chatMessages.map((m) => (
               <div key={m.id}>
                 <span className="font-semibold">{m.username}: </span>
-                <span className="text-gray-600 dark:text-gray-300">{m.text}</span>
+                <span className="text-gray-600 dark:text-gray-300">
+                  {m.text}
+                </span>
               </div>
             ))}
             <div ref={chatEndRef} />
           </div>
 
-          <form onSubmit={sendChat} className="flex shrink-0 gap-2 border-t border-gray-200 p-3 dark:border-ink-700">
+          <form
+            onSubmit={sendChat}
+            className="flex shrink-0 gap-2 border-t border-gray-200 p-3 dark:border-ink-700"
+          >
             <input
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
