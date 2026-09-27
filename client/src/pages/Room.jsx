@@ -21,6 +21,8 @@ import {
   LinkIcon,
   MessageCircleIcon,
   SendIcon,
+  ShieldCheckIcon,
+  UserMinusIcon,
 } from "../icons";
 
 // FUNCTION: plain-language description of a pending request, for the host/mod to read
@@ -79,8 +81,11 @@ function Room() {
   const [error, setError] = useState("");
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [welcome, setWelcome] = useState(""); // username to greet, cleared after a few seconds
+  // FEATURE: floating top-center popup, reused for the join welcome and the
+  // "you've been made a moderator" moment. { icon, text } or null. Auto-clears.
+  const [popup, setPopup] = useState(null);
   const hasJoinedRef = useRef(false); // so the welcome popup only shows on the FIRST join, not on reconnects
+  const [removedNotice, setRemovedNotice] = useState(false); // shows a blocking "you were removed" dialog instead of navigating instantly
 
   const myUserId = getUserId();
   const myRole = participants.find((p) => p.userId === myUserId)?.role;
@@ -106,14 +111,36 @@ function Room() {
 
           if (!hasJoinedRef.current) {
             hasJoinedRef.current = true;
-            setWelcome(username);
-            setTimeout(() => setWelcome(""), 3000);
+            setPopup({
+              icon: <PlayIcon className="h-3 w-3" />,
+              text: (
+                <>
+                  Welcome, <span className="text-brand-500">{username}</span>!
+                </>
+              ),
+            });
+            setTimeout(() => setPopup(null), 3000);
           }
         },
       );
     };
 
     const onParticipantsChange = (data) => setParticipants(data.participants);
+    // FEATURE: when the HOST changes *my* role, show me a popup about it
+    // (everyone still gets the participant list refresh via `participants`)
+    const onRoleAssigned = (data) => {
+      setParticipants(data.participants);
+      if (data.userId === myUserId) {
+        setPopup({
+          icon: <ShieldCheckIcon className="h-3 w-3" />,
+          text:
+            data.role === "moderator"
+              ? "You've been made a moderator!"
+              : "You're now a participant again",
+        });
+        setTimeout(() => setPopup(null), 3000);
+      }
+    };
     const onSync = (state) => setSync(state);
     const onPendingRequests = (list) => setPendingRequests(list);
     const onChatMessage = (msg) => {
@@ -141,14 +168,13 @@ function Room() {
       );
       setTimeout(() => setNotice(""), 3000);
     };
-    const onRemoved = () => {
-      alert("You were removed from the room by the host");
-      navigate("/");
-    };
+    // FEATURE: instead of a blocking native alert(), show a styled popup and
+    // let the removed user dismiss it themselves before leaving the room
+    const onRemoved = () => setRemovedNotice(true);
 
     socket.on("user_joined", onParticipantsChange);
     socket.on("user_left", onParticipantsChange);
-    socket.on("role_assigned", onParticipantsChange);
+    socket.on("role_assigned", onRoleAssigned);
     socket.on("participant_removed", onParticipantsChange);
     socket.on("host_transferred", onHostTransferred);
     socket.on("sync_state", onSync);
@@ -168,7 +194,7 @@ function Room() {
     return () => {
       socket.off("user_joined", onParticipantsChange);
       socket.off("user_left", onParticipantsChange);
-      socket.off("role_assigned", onParticipantsChange);
+      socket.off("role_assigned", onRoleAssigned);
       socket.off("participant_removed", onParticipantsChange);
       socket.off("host_transferred", onHostTransferred);
       socket.off("sync_state", onSync);
@@ -292,14 +318,39 @@ function Room() {
   // --- Main room screen ---
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-white text-ink-900 dark:bg-ink-950 dark:text-white">
-      {/* Welcome popup - shown once, right after this user's own join succeeds */}
-      {welcome && (
+      {/* Floating popup - welcome-on-join and "you're now a moderator" share this */}
+      {popup && (
         <div className="fixed inset-x-0 top-6 z-50 flex justify-center px-4">
           <div className="animate-fade-in-down flex items-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium shadow-lg dark:border-ink-700 dark:bg-ink-900">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white">
-              <PlayIcon className="h-3 w-3" />
+              {popup.icon}
             </span>
-            Welcome, <span className="text-brand-500">{welcome}</span>!
+            {popup.text}
+          </div>
+        </div>
+      )}
+
+      {/* Blocking popup - shown to a participant the host just removed, in
+          place of the room UI, so they can't keep interacting with a room
+          they're no longer part of */}
+      {removedNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 text-center shadow-2xl dark:border-ink-700 dark:bg-ink-900">
+            <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/15 text-red-500">
+              <UserMinusIcon className="h-6 w-6" />
+            </span>
+            <h3 className="mb-1 font-display text-lg dark:text-white">
+              You were removed
+            </h3>
+            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+              The host removed you from this room.
+            </p>
+            <button
+              onClick={() => navigate("/")}
+              className="w-full rounded-lg bg-brand-500 py-2.5 text-sm font-bold uppercase tracking-wide text-white hover:bg-brand-600"
+            >
+              Back to home
+            </button>
           </div>
         </div>
       )}
