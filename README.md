@@ -34,6 +34,8 @@ approval-request flow for participants, host transfer, and room chat.
 - In-app YouTube search (search by title, pick from real results — no need to
   paste a link)
 - Room chat
+- Popup notifications — welcome-on-join, "you've been made a moderator",
+  and a "you were removed" dialog for the affected user
 - Persistent rooms — room code, host, and last-played video survive a server
   restart (MongoDB)
 - Light/dark theme toggle
@@ -54,7 +56,8 @@ SyncWave/
 │   │   ├── rooms.js             # REST: create room / check room exists
 │   │   └── youtube.js           # REST: in-app YouTube search (wraps Data API v3)
 │   ├── socket/handlers.js       # every realtime event (join, play, chat, RBAC...)
-│   └── utils/youtube.js         # parses any YouTube URL format into a video ID
+│   ├── utils/youtube.js         # parses any YouTube URL format into a video ID
+│   └── tests/                   # unit tests (permissions, youtube parsing, Room model)
 └── client/
     ├── index.html
     ├── tailwind.config.js
@@ -125,42 +128,30 @@ Backend on **Render** (Web Service — supports WebSockets), frontend on
    redeploy the backend (needed for CORS + Socket.IO to accept the frontend's origin)
 5. Test with two browser tabs on the live URL, then paste it at the top of this README
 
+## Testing
+
+Server-side unit tests cover the pure logic that's safe to test without a
+running DB or socket connection: the RBAC rules (`permissions.js`), the
+YouTube URL/ID parser (`utils/youtube.js`), and the in-memory `Room` model
+(playback sync, roles, the approval queue, host transfer, chat).
+
+```bash
+cd server
+npm test        # node's built-in test runner, no extra deps needed
+```
+
 ## Architecture overview
 
 - **Server is the single source of truth.** No client ever trusts another
   client directly — every playback action (play/pause/seek/change video)
   goes through the server, which validates the sender's role before
   applying and broadcasting the new state.
-- **In-memory room state + MongoDB.** Fast-changing playback state
-  (`currentTime`, `playState`) lives in memory per room (`rooms/Room.js`)
-  and is _not_ written to the database every tick. Only durable data
-  (room code, host, last video) is persisted to MongoDB, so a room
-  survives a server restart.
-- **Late-joiner sync.** A room's current position is derived on demand
-  from `currentTime` + elapsed time since it was last updated — so a
-  user joining mid-playback lands at the correct timestamp without any
-  polling.
-- **Role-based access control.** `permissions.js` is the single place
-  that defines who can do what. Host-only actions (assign role, remove,
-  transfer host) and control actions (play/pause/seek/change video,
-  restricted to Host + Moderator) are both enforced server-side.
-- **Approval-request flow.** A plain Participant's playback actions
-  don't apply directly — they're queued as a `pending request` that a
-  Host/Moderator can approve or reject. Approved requests reuse the
-  exact same state-mutation methods as direct controls, so there's no
-  duplicated logic between the two paths.
-- **WebSockets (Socket.IO).** Rooms are Socket.IO rooms; every event
-  (`play`, `pause`, `seek`, `change_video`, `assign_role`,
-  `remove_participant`, `transfer_host`, `chat_message`, …) is scoped to
-  the relevant room and broadcast only to that room's members.
+- **In-memory room state + MongoDB.** Fast-changing playback state lives
+  in memory per room; only durable data (room code, host, last video) is
+  persisted to MongoDB, so a room survives a server restart.
+- **Role-based access control**, an **approval-request flow** for
+  Participants, and the **late-joiner sync** trick (deriving playback
+  position from elapsed time instead of polling) round out the core design.
 
-## Known trade-offs
-
-- Room state lives in a single Node process's memory — horizontally
-  scaling to multiple server instances would need a shared store (e.g.
-  Redis) for room state and Socket.IO's Redis adapter for cross-server
-  broadcast.
-- Chat history is capped at the last 50 messages per room and is not
-  persisted to the database (kept simple for this assignment's scope).
-- CORS is locked to a single exact `CLIENT_URL` — Vercel preview-deployment
-  URLs (as opposed to the production domain) won't pass CORS unless added too.
+Full write-up — including the socket event catalog, the extrapolation
+formula, and known trade-offs at scale — is in **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
