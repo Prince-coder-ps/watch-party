@@ -255,7 +255,9 @@ function Room() {
             placeholder="Your name"
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submitName()}
             maxLength={20}
+            autoFocus
             className="mb-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none
                        focus:border-brand-500 focus:ring-2 focus:ring-brand-100 dark:border-ink-700 dark:bg-ink-800 dark:text-white"
           />
