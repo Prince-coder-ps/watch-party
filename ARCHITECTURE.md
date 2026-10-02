@@ -132,12 +132,14 @@ users in room `ABC123` never see traffic from room `XYZ789`.
 
 ## 7. Client-side notes
 
-- `client/src/socket.js` holds one shared Socket.IO client instance for
-  the whole app.
 - `client/src/identity.js` generates and persists a `userId` per browser
-  (not per tab) via `sessionStorage`, so a refresh mid-session reconnects
-  as the _same_ participant with the _same_ role, instead of joining as a
-  brand-new user.
+  (not per tab) via `localStorage`, so a refresh — or reopening the room
+  in a new tab — reconnects as the _same_ participant with the _same_
+  role, instead of joining as a brand-new user.
+  (During multi-user testing, this was temporarily switched to
+  `sessionStorage` so each browser tab could simulate a separate user
+  without needing incognito windows — reverted back to `localStorage`
+  for the final/production behavior.)
 - `Room.jsx` never mutates shared state itself — every value it renders
   (`participants`, `sync`, `pendingRequests`, `chatMessages`) comes from a
   server-pushed event. Button clicks only `socket.emit(...)`; the actual
