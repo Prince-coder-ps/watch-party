@@ -15,7 +15,7 @@ async function getOrLoadRoom(roomId) {
   const doc = await RoomModel.findOne({ roomId });
   if (!doc) return null;
 
-  // Someone else may have loaded it while we were awaiting the DB call above
+  // Someone else may have loaded it while we were awaiting the DB call above - concurrency / Race Condition Protection
   if (activeRooms.has(roomId)) return activeRooms.get(roomId);
 
   const room = new Room({
