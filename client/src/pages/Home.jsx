@@ -16,7 +16,7 @@ function Home() {
   const navigate = useNavigate();
   const [mode, setMode] = useState("create"); // 'create' | 'join' - which tab is active
   const [username, setUsername] = useState(
-    sessionStorage.getItem("username") || "",
+    localStorage.getItem("username") || "",
   );
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -37,7 +37,7 @@ function Home() {
       const data = await res.json();
       if (!res.ok) return setError(data.error || "Could not create room");
 
-      sessionStorage.setItem("username", username.trim());
+      localStorage.setItem("username", username.trim());
       navigate(`/room/${data.roomId}`);
     } catch (err) {
       console.error("create room failed:", err);
@@ -52,7 +52,7 @@ function Home() {
     if (!username.trim()) return setError("Enter your name first");
     if (!code.trim()) return setError("Enter a room code");
 
-    sessionStorage.setItem("username", username.trim());
+    localStorage.setItem("username", username.trim());
     navigate(`/room/${code.trim().toUpperCase()}`);
   };
 

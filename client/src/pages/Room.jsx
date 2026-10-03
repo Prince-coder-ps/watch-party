@@ -67,7 +67,7 @@ function Room() {
   const chatOpenRef = useRef(false); // mirrors chatOpen for the socket listener below
 
   const [username, setUsername] = useState(
-    sessionStorage.getItem("username") || "",
+    localStorage.getItem("username") || "",
   );
   const [nameInput, setNameInput] = useState("");
   const [participants, setParticipants] = useState([]);
@@ -224,7 +224,7 @@ function Room() {
   const submitName = () => {
     const name = nameInput.trim();
     if (!name) return;
-    sessionStorage.setItem("username", name);
+    localStorage.setItem("username", name);
     setUsername(name);
   };
 
